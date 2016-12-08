@@ -28,7 +28,7 @@ int main(int argc, char *argv[]){
   fclose(nodeFile);
 
   //Initializing shared variables
-  SETUP();
+  SETUP_KEY(node);
   int *n = SHARED_MEMORY(sizeof(int));
   *n = nodeCount;
   int *reqNumber = SHARED_MEMORY(sizeof(int));
@@ -39,12 +39,15 @@ int main(int argc, char *argv[]){
   *outstandingReplies = 0;
   int *requestCS = SHARED_MEMORY(sizeof(int));
   *requestCS = 0;
-  int *deferredReplies = SHARED_MEMORY(MAX_NODES*sizeof(int));
-  int *temp = deferredReplies;
+  int *nodeNumbers = SHARED_MEMORY(MAX_NODES*sizeof(int));
+  int *temp = nodeNumbers;
   for (int i = 0; i < nodeCount; i++){
-    // *temp = 0;
-    // (*temp)++;
-    temp[i] = 0;
+    nodeNumbers[i] = nodes[i];
+  }
+  int *deferredReplies = SHARED_MEMORY(MAX_NODES*sizeof(int));
+  temp = deferredReplies;
+  for (int i = 0; i < nodeCount; i++){
+    deferredReplies[i] = 0;
   }
   int mutex = SEMAPHORE(SEM_CNT, 1);
   int waitSemaphore = SEMAPHORE(SEM_CNT, 1);
@@ -69,36 +72,105 @@ int main(int argc, char *argv[]){
     return 1;
   }
 
+  //Add me protocol
+  Message msgAddMe;
+  int msgSize = sizeof(Message) - sizeof(long int);
+
+  msgAddMe.msgFrom = node;
+  strcpy(msgAddMe.buffer , ADD_ME);
+  int i;
+  printf("Notifying: ");
+  for (i = 0; i < nodeCount; i++){
+    msgAddMe.msgTo = (long int)nodes[i];
+    if (msgsnd(requestQueue, &msgAddMe, msgSize, 0) == -1){
+      perror("Failed to add to protocol");
+      return 1;
+    }
+    printf("%d ", nodes[i]);
+  }
+  printf("\n");
+
   //Forking to create three processes
   int pid = fork();
+
   if (pid == -1){
     perror("Fork failed D:");
     return 2;
   }
+
   else if (pid == 0) {
     //child process: reply handler
+
+  }
+
+  else {
+
     pid = fork();
+
     if (pid == -1){
       perror("Fork failed D:");
       return 2;
     }
-    else if (pid == 0) {
-      //child process: cs mutex
-      printf("I'M THE MUTEX PROCESS :D\n");
 
+    else if (pid == 0) {
+      //child/parent process: cs mutex
+      printf("--mutex process up\n");
+      Message msgMutex;
+
+      msgMutex.msgTo = node;
+      msgMutex.msgFrom = node;
+      strcpy(msgMutex.buffer , "HEHE!!\n");
+
+      int randomTime;
+      // while (1){
+      //   randomTime = rand() %5 + 2;
+      //   sleep(randomTime);
+      //   printf("I'm the mutex and I just woke up!\n");
+      //   if (msgsnd(requestQueue, &msgMutex, msgSize, 0) == -1){
+      //     perror("Mutex failed to send");
+      //   }
+      //   if (msgsnd(replyQueue, &msgMutex, msgSize, 0) == -1){
+      //     perror("Mutex failed to send");
+      //   }
+      //
+      // }
     }
+
     else {
       //parent process: reply handler
-      printf("I'M THE REPLY PROCESS :D\n");
+      printf("--reply process up\n");
+      Message msgReply;
+      while(1){
+        //TODO: check for errors
+        msgrcv(replyQueue, &msgReply, msgSize, node, 0);
+        printf("Reply: %s", msgReply.buffer);
+      }
     }
-  }
-  else {
+
     //parent process: request handler
-    printf("I'M THE REQUEST PROCESS :D\n");
-    // while(1){
-    //   n = msgrcv(requestQueue, &msg, msgSize, 1, 0);
-    //   printf("%s", msg.buffer);
-    // }
+    printf("--request process up\n");
+    Message msgRequest;
+    while(1){
+      //TODO: check for errors
+      msgrcv(requestQueue, &msgRequest, msgSize, node, 0);
+        //Add me request
+      if(strcmp(msgRequest.buffer, ADD_ME) == 0){
+        //Add to existing nodes
+        nodeNumbers[*n] = (int)msgRequest.msgFrom;
+        deferredReplies[*n] = 0;
+        *n += 1;
+        int aux;
+        printf("--Nodes are now (%d): ", *n);
+        for (aux = 0; aux < *n; aux++) {
+          printf("%d ",nodeNumbers[aux]);
+        }
+        printf("\n");
+      }
+      else {
+        //Actual request message
+        printf("Request: %s from: %d\n", msgRequest.buffer, msgRequest.msgFrom);
+      }
+    }
 
   }
 }

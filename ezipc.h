@@ -15,8 +15,9 @@
 /* GLOBAL DEFINITIONS */
 
 int semid;
+int IPC_KEY;
 
-#define IPC_KEY		getuid()
+//#define IPC_KEY		getuid()
 #define SEM_COUNTING         0
 #define SEM_CNT              0
 #define SEM_BINARY           1
@@ -36,6 +37,7 @@ void EZIPC_SEM_REMOVE();
 void EZIPC_SHM_REMOVE();
 int EZIPC_SHM_DET( char *addr);
 void SETUP();
+void SETUP_KEY(int key);
 int SEMAPHORE(int type, int value);
 void *SHARED_MEMORY(int size);
 int COBEGIN(int X);
@@ -236,6 +238,30 @@ void SETUP()
 {
 char *Maint_Block;
 int Child;
+IPC_KEY = getuid();
+
+	EZIPC_SHM_MAKE(0,2+IPC_MAX);
+	Maint_Block=EZIPC_SHM_ADDR(0);
+	*Maint_Block=1;
+	*(Maint_Block+1)=1;
+	semid = EZIPC_SEM_MAKE(0,1);
+	EZIPC_SEM_CALL(semid,1);
+	if((Child=fork())!=0)
+		{
+		wait(&Child);
+		EZIPC_SEM_REMOVE();
+		EZIPC_SHM_REMOVE();
+		exit(0);
+		}
+	EZIPC_SHM_DET(Maint_Block);
+ 		/* else continue running the program */
+}
+
+void SETUP_KEY(int key)
+{
+char *Maint_Block;
+int Child;
+IPC_KEY = key;
 
 	EZIPC_SHM_MAKE(0,2+IPC_MAX);
 	Maint_Block=EZIPC_SHM_ADDR(0);

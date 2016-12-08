@@ -9,6 +9,7 @@
 #include <string.h>
 
 #define BUFFER_SIZE 500
+#define ADD_ME "pretty please\n"
 
 const char PRINTER = 'M';
 const char REQUEST = 'E';
