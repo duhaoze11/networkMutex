@@ -100,11 +100,6 @@ int main(int argc, char *argv[]){
 
   else if (pid == 0) {
     //child process: reply handler
-
-  }
-
-  else {
-
     pid = fork();
 
     if (pid == -1){
@@ -122,18 +117,18 @@ int main(int argc, char *argv[]){
       strcpy(msgMutex.buffer , "HEHE!!\n");
 
       int randomTime;
-      // while (1){
-      //   randomTime = rand() %5 + 2;
-      //   sleep(randomTime);
-      //   printf("I'm the mutex and I just woke up!\n");
-      //   if (msgsnd(requestQueue, &msgMutex, msgSize, 0) == -1){
-      //     perror("Mutex failed to send");
-      //   }
-      //   if (msgsnd(replyQueue, &msgMutex, msgSize, 0) == -1){
-      //     perror("Mutex failed to send");
-      //   }
-      //
-      // }
+      while (1){
+        randomTime = rand() %5 + 2;
+        sleep(randomTime);
+        printf("I'm the mutex and I just woke up!\n");
+        if (msgsnd(requestQueue, &msgMutex, msgSize, 0) == -1){
+          perror("Mutex failed to send");
+        }
+        if (msgsnd(replyQueue, &msgMutex, msgSize, 0) == -1){
+          perror("Mutex failed to send");
+        }
+
+      }
     }
 
     else {
@@ -146,7 +141,9 @@ int main(int argc, char *argv[]){
         printf("Reply: %s", msgReply.buffer);
       }
     }
+  }
 
+  else {
     //parent process: request handler
     printf("--request process up\n");
     Message msgRequest;
@@ -168,7 +165,7 @@ int main(int argc, char *argv[]){
       }
       else {
         //Actual request message
-        printf("Request: %s from: %d\n", msgRequest.buffer, msgRequest.msgFrom);
+        printf("Request: %s", msgRequest.buffer);
       }
     }
 
