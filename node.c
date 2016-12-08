@@ -41,12 +41,12 @@ int main(int argc, char *argv[]){
   *requestCS = 0;
   int *nodeNumbers = SHARED_MEMORY(MAX_NODES*sizeof(int));
   int *temp = nodeNumbers;
-  for (int i = 0; i < nodeCount; i++){
+  for (int i = 0; i < MAX_NODES; i++){
     nodeNumbers[i] = nodes[i];
   }
   int *deferredReplies = SHARED_MEMORY(MAX_NODES*sizeof(int));
   temp = deferredReplies;
-  for (int i = 0; i < nodeCount; i++){
+  for (int i = 0; i < MAX_NODES; i++){
     deferredReplies[i] = 0;
   }
   int mutex = SEMAPHORE(SEM_CNT, 1);
@@ -111,24 +111,67 @@ int main(int argc, char *argv[]){
       //child/parent process: cs mutex
       printf("--mutex process up\n");
       Message msgMutex;
+      int randomWait;
 
-      msgMutex.msgTo = node;
-      msgMutex.msgFrom = node;
-      strcpy(msgMutex.buffer , "HEHE!!\n");
+      // while (1){
+        randomWait = (rand() % 10) + 1;
+        sleep(randomWait);
+        printf("I WANT THE CRITICAL SECTION!\n");
 
-      int randomTime;
-      while (1){
-        randomTime = rand() %5 + 2;
-        sleep(randomTime);
-        printf("I'm the mutex and I just woke up!\n");
-        if (msgsnd(requestQueue, &msgMutex, msgSize, 0) == -1){
-          perror("Mutex failed to send");
+        printf("Highest request number is: %d\n", *highestReqNumber);
+        P(mutex);
+        *requestCS = 1;
+        *highestReqNumber += 1;
+        *reqNumber = *highestReqNumber;
+        V(mutex);
+        printf("My request number is: %d\n", *reqNumber);
+
+        *outstandingReplies = *n;
+        printf("outstanding replies: %d\n", *outstandingReplies);
+
+        msgMutex.msgFrom = node;
+        int send;
+        for (send = 0; i < *n; send++){
+          msgMutex.msgTo = nodeNumbers[i];
+          sprintf (msgMutex.buffer, "%d", *reqNumber);
+          if (msgsnd(requestQueue, &msgMutex, msgSize, 0) == -1){
+            perror("Mutex failed to send request");
+          }
+          printf("Asking %d\n", nodeNumbers[i]);
         }
-        if (msgsnd(replyQueue, &msgMutex, msgSize, 0) == -1){
-          perror("Mutex failed to send");
+
+        while (*outstandingReplies != 0){
+          P(waitSemaphore);
         }
 
-      }
+        // BEGINNING OF CRITICAL SECTION //
+        msgMutex.msgTo = SERVER;
+        msgMutex.msgFrom = node;
+        strcpy(msgMutex.buffer , "OMG I'M IN THE CRITICAL SECTION!!\n");
+        int randomTimes = (rand() % 10) + 1;
+
+        while (randomTimes){
+          if (msgsnd(printerQueue, &msgMutex, msgSize, 0) == -1){
+            perror("Mutex failed to send");
+          }
+          randomTimes--;
+        }
+        // END OF CRITICAL SECTION //
+
+        *requestCS = 0;
+
+        int blocked;
+        for (blocked = 0; blocked <= *n; blocked++) {
+          if (deferredReplies[nodeNumbers[blocked]]) {
+            deferredReplies[nodeNumbers[blocked]] = 0;
+            msgMutex.msgTo = nodeNumbers[blocked];
+            if (msgsnd(replyQueue, &msgMutex, msgSize, 0) == -1){
+              perror("Mutex failed to send reply");
+            }
+            printf("Replied to %d\n", nodeNumbers[blocked]);
+          }
+        }
+      // }
     }
 
     else {
@@ -138,7 +181,9 @@ int main(int argc, char *argv[]){
       while(1){
         //TODO: check for errors
         msgrcv(replyQueue, &msgReply, msgSize, node, 0);
-        printf("Reply: %s", msgReply.buffer);
+        printf("Received a reply from: %d\n", msgReply.msgFrom);
+        *outstandingReplies -= 1;
+        V(waitSemaphore);
       }
     }
   }
@@ -150,9 +195,10 @@ int main(int argc, char *argv[]){
     while(1){
       //TODO: check for errors
       msgrcv(requestQueue, &msgRequest, msgSize, node, 0);
-        //Add me request
+
+
       if(strcmp(msgRequest.buffer, ADD_ME) == 0){
-        //Add to existing nodes
+        //Add me request
         nodeNumbers[*n] = (int)msgRequest.msgFrom;
         deferredReplies[*n] = 0;
         *n += 1;
@@ -163,9 +209,40 @@ int main(int argc, char *argv[]){
         }
         printf("\n");
       }
+
       else {
-        //Actual request message
-        printf("Request: %s", msgRequest.buffer);
+        //Actual request message: determine priorities
+        int k;
+        if (sscanf(msgRequest.buffer, "%d *", &k)){
+          printf("Received request with number %d\n", k);
+        } else {
+          continue;
+        }
+
+        int deferIt;
+        if (k > *highestReqNumber){
+          *highestReqNumber = k;
+        }
+        P(mutex);
+         deferIt = (*requestCS) &&
+         ( ( k > *reqNumber) ||
+         ( k == *reqNumber && msgRequest.msgFrom > node ) );
+        V(mutex);
+
+        if (deferIt){
+          //make it wait
+          printf("Make %d wait\n", msgRequest.msgFrom);
+          deferredReplies[msgRequest.msgFrom] = 1;
+        }
+        else{
+          //send reply
+          printf("Cool, you can go %d\n", msgRequest.msgFrom);
+          msgRequest.msgTo = msgRequest.msgFrom;
+          msgRequest.msgFrom = node;
+          if (msgsnd(replyQueue, &msgRequest, msgSize, 0) == -1){
+            perror("Mutex failed to send");
+          }
+        }
       }
     }
 
