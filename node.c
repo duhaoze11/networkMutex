@@ -113,7 +113,7 @@ int main(int argc, char *argv[]){
       Message msgMutex;
       int randomWait;
 
-      // while (1){
+      while (1){
         randomWait = (rand() % 15) + 1;
         sleep(randomWait);
         printf("I WANT THE CRITICAL SECTION!\n");
@@ -182,20 +182,20 @@ int main(int argc, char *argv[]){
             printf("Replied to %d\n", nodeNumbers[blocked]);
           }
         }
-      // }
+      }
     }
 
     else {
       //parent process: reply handler
       printf("--reply process up\n");
       Message msgReply;
-      // while(1){
+      while(1){
         //TODO: check for errors
         msgrcv(replyQueue, &msgReply, msgSize, node, 0);
         printf("Received a reply from: %d\n", msgReply.msgFrom);
         *outstandingReplies -= 1;
         V(waitSemaphore);
-      // }
+      }
     }
   }
 
