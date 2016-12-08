@@ -2,7 +2,6 @@
 #include <unistd.h>
 
 int main(){
-  printf("Hacker node started!\n");
   int printerQueue;
 
   key_t printerTok = ftok(".", PRINTER);
@@ -13,9 +12,11 @@ int main(){
   }
 
   Message msg;
-  msg.msgTo = 1;
+  msg.msgTo = SERVER;
   msg.msgFrom = getpid();
   strcpy(msg.buffer , "BUAHAHAHA!!\n");
+
+  printf("Hacker node started! Sending to queue: %d\n", printerQueue);
 
   int msgSize = sizeof(Message) - sizeof(long int);
   int randomTime;

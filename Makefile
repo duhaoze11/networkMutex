@@ -5,7 +5,7 @@ CC = gcc
 CFLAGS = -lrt -pthread
 
 # Targets
-TARGETS = printServer hackerNode
+TARGETS = printServer hackerNode node
 
 all: $(TARGETS)
 

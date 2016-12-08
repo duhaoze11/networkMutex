@@ -1,7 +1,6 @@
 #include "serverMsg.h"
 
 int main (){
-  printf("Printing server is up!\n");
   char buffer[BUFFER_SIZE];
   int printerQueue, replyQueue, requestQueue, n;
   Message msg;
@@ -23,10 +22,12 @@ int main (){
     return 1;
   }
 
+  printf("Printing server is up! Queue: %d\n", printerQueue);
+
   int msgSize = sizeof(Message) - sizeof(long int);
 
   while(1){
-    n = msgrcv(printerQueue, &msg, msgSize, 1, 0);
+    n = msgrcv(printerQueue, &msg, msgSize, SERVER, 0);
     printf("%s", msg.buffer);
   }
 
