@@ -49,8 +49,8 @@ int main(int argc, char *argv[]){
   for (int i = 0; i < MAX_NODES; i++){
     deferredReplies[i] = 0;
   }
-  int mutex = SEMAPHORE(SEM_CNT, 1);
-  int waitSemaphore = SEMAPHORE(SEM_CNT, 1);
+  int mutex = SEMAPHORE(SEM_BIN, 1);
+  int waitSemaphore = SEMAPHORE(SEM_BIN, 1);
 
   //Initializing message queues
   int printerQueue, replyQueue, requestQueue;
@@ -114,7 +114,7 @@ int main(int argc, char *argv[]){
       int randomWait;
 
       // while (1){
-        randomWait = (rand() % 10) + 1;
+        randomWait = (rand() % 15) + 1;
         sleep(randomWait);
         printf("I WANT THE CRITICAL SECTION!\n");
 
@@ -127,26 +127,31 @@ int main(int argc, char *argv[]){
         printf("My request number is: %d\n", *reqNumber);
 
         *outstandingReplies = *n;
-        printf("outstanding replies: %d\n", *outstandingReplies);
 
         msgMutex.msgFrom = node;
         int send;
-        for (send = 0; i < *n; send++){
-          msgMutex.msgTo = nodeNumbers[i];
+        for (send = 0; send < *n; send++){
+          msgMutex.msgTo = nodeNumbers[send];
           sprintf (msgMutex.buffer, "%d", *reqNumber);
           if (msgsnd(requestQueue, &msgMutex, msgSize, 0) == -1){
             perror("Mutex failed to send request");
           }
-          printf("Asking %d\n", nodeNumbers[i]);
+          printf("Asking %d\n", nodeNumbers[send]);
         }
 
-        while (*outstandingReplies != 0){
+        while (*outstandingReplies > 0){
+          printf("mutex unblocked, outstanding replies: %d\n", *outstandingReplies);
           P(waitSemaphore);
         }
 
         // BEGINNING OF CRITICAL SECTION //
         msgMutex.msgTo = SERVER;
         msgMutex.msgFrom = node;
+        sprintf (msgMutex.buffer, "############## START OUTPUT FOR NODE %d ##############\n", node);
+        if (msgsnd(printerQueue, &msgMutex, msgSize, 0) == -1){
+          perror("Mutex failed to send");
+        }
+
         strcpy(msgMutex.buffer , "OMG I'M IN THE CRITICAL SECTION!!\n");
         int randomTimes = (rand() % 10) + 1;
 
@@ -156,6 +161,12 @@ int main(int argc, char *argv[]){
           }
           randomTimes--;
         }
+
+        sprintf (msgMutex.buffer, "-------------- END OUTPUT FOR NODE %d --------------\n", node);
+        if (msgsnd(printerQueue, &msgMutex, msgSize, 0) == -1){
+          perror("Mutex failed to send");
+        }
+
         // END OF CRITICAL SECTION //
 
         *requestCS = 0;
@@ -178,13 +189,13 @@ int main(int argc, char *argv[]){
       //parent process: reply handler
       printf("--reply process up\n");
       Message msgReply;
-      while(1){
+      // while(1){
         //TODO: check for errors
         msgrcv(replyQueue, &msgReply, msgSize, node, 0);
         printf("Received a reply from: %d\n", msgReply.msgFrom);
         *outstandingReplies -= 1;
         V(waitSemaphore);
-      }
+      // }
     }
   }
 
@@ -195,7 +206,6 @@ int main(int argc, char *argv[]){
     while(1){
       //TODO: check for errors
       msgrcv(requestQueue, &msgRequest, msgSize, node, 0);
-
 
       if(strcmp(msgRequest.buffer, ADD_ME) == 0){
         //Add me request
