@@ -110,12 +110,14 @@ int main(int argc, char *argv[]){
     else if (pid == 0) {
       //child/parent process: cs mutex
       printf("--mutex process up\n");
+      char auxBuffer[10];
       Message msgMutex;
       int randomWait;
 
       while (1){
-        randomWait = (rand() % 15) + 1;
-        sleep(randomWait);
+        // randomWait = (rand() % 15) + 1;
+        // sleep(randomWait);
+        fgets(auxBuffer, 10, stdin);
         printf("I WANT THE CRITICAL SECTION!\n");
 
         printf("Highest request number is: %d\n", *highestReqNumber);
