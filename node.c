@@ -115,8 +115,6 @@ int main(int argc, char *argv[]){
       int randomWait;
 
       while (1){
-        // randomWait = (rand() % 15) + 1;
-        // sleep(randomWait);
         fgets(auxBuffer, 10, stdin);
         printf("I WANT THE CRITICAL SECTION!\n");
 
@@ -161,6 +159,7 @@ int main(int argc, char *argv[]){
           if (msgsnd(printerQueue, &msgMutex, msgSize, 0) == -1){
             perror("Mutex failed to send");
           }
+          sleep(1);
           randomTimes--;
         }
 

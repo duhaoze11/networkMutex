@@ -22,7 +22,7 @@ int main(){
   int randomTime;
 
   while (1){
-    randomTime = rand() %5 + 1;
+    randomTime = rand() %10 + 1;
     sleep(randomTime);
     printf("Hacking!\n");
     if (msgsnd(printerQueue, &msg, msgSize, 0) == -1){

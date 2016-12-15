@@ -27,7 +27,6 @@ int main (){
   int msgSize = sizeof(Message) - sizeof(long int);
 
   while(1){
-    sleep(1);
     n = msgrcv(printerQueue, &msg, msgSize, SERVER, 0);
     printf("%s", msg.buffer);
   }
